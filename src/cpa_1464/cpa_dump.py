@@ -3,6 +3,7 @@
 import sys
 import pprint
 import json
+import os
 
 #
 # Free Coding session for 2015-01-24
@@ -28,14 +29,14 @@ def read_a_record(line):
         raise Exception("First line must be record 1")
     assert_line_length(line)
     return {
-        "record type": substring(line, 1),
-        "line number": substring(line, 2, 10),
-        "originator id": substring(line, 11, 20),
-        "file creation number": substring(line, 21, 24),
-        "creation date": substring(line, 25, 30),
-        "destination data centre": substring(line, 31, 35),
-        "reserved customer-direct communcation area": substring(line, 36, 55),
-        "currency": substring(line, 56, 58),
+        "Record Type": substring(line, 1),
+        "Line Number": substring(line, 2, 10),
+        "Originator ID": substring(line, 11, 20),
+        "File Creation Number": substring(line, 21, 24),
+        "Creation Date": substring(line, 25, 30),
+        "Destination Data Centre": substring(line, 31, 35),
+        "Reserved Customer-Direct Communcation Area": substring(line, 36, 55),
+        "Currency": substring(line, 56, 58),
     }
 
 
@@ -79,8 +80,8 @@ def read_cd_record(line):
     else:
         transaction_type = "debits"
     return {
-        "record type": substring(line, 1),
-        "line number": substring(line, 2, 10),
+        "Record Type": substring(line, 1),
+        "Line Number": substring(line, 2, 10),
         "Origination Control Data": substring(line, 11, 24),
         transaction_type: transactions
     }
@@ -92,8 +93,8 @@ def read_z_record(line):
         raise Exception("Last line must be 'Z' record")
     assert_line_length(line)
     return {
-        "record type": substring(line, 1),
-        "line number": substring(line, 2, 10),
+        "Record Type": substring(line, 1),
+        "Line Number": substring(line, 2, 10),
         "Origination Control Data": substring(line, 11, 24),
         "Total Value of Debit Transactions": substring(line, 25, 38),
         "Total Number of Debit Transactions": substring(line, 39, 46),
@@ -107,14 +108,28 @@ def read_z_record(line):
 
 
 def assert_line_length(line):
+    print len(line)
     if len(line) != 1465:  # includes newline
         print(len(line))
         raise Exception("Line length is not equal to 1464")
 
+# replacement strings
+WINDOWS_LINE_ENDING = b'\r\n'
+UNIX_LINE_ENDING = b'\n'
 
 def main(filename):
     pp = pprint.PrettyPrinter(indent=4)
-    with open(filename) as f:
+
+    # Replace line endings with LF for unix
+    with open(filename, 'rb') as open_file:
+        content = open_file.read()
+    content = content.replace(WINDOWS_LINE_ENDING, UNIX_LINE_ENDING)
+    if content[-1] != WINDOWS_LINE_ENDING or content[-1] != UNIX_LINE_ENDING:
+      content += UNIX_LINE_ENDING
+    with open(filename + '.tmp', 'wb') as open_file:
+        open_file.write(content)
+
+    with open(filename + '.tmp') as f:
         lines = f.readlines()
         with open("output.json", "a+") as out:
           obj = []
@@ -130,6 +145,7 @@ def main(filename):
           obj.append(z)
           pp.pprint(z)
           json.dump(obj, out)
+    os.remove(filename + '.tmp')
 
 
 if __name__ == '__main__':
