@@ -5,17 +5,19 @@ __version__ = '0.1'
 from datetime import date
 import StringIO
 import uuid
+import sys
+import json
+import cPickle as pickle
 
 
 class CPAFile():
 
     ORIGINATOR_ID = '0000000000'
     DATA_CENTRE = '00000'
-    SHORT_NAME = "MATT"
-    LONG_NAME = "MATT WARREN"
+    SHORT_NAME = "AL"
+    LONG_NAME = "AL BERTAN"
     CLIENT_SUNDRY = "investing in the future"
 
-    # file_number = ''
     record_count = 0
 
     total_debit_amount = 0
@@ -24,11 +26,14 @@ class CPAFile():
     total_credit_count = 0
 
     def __init__(self, **kwargs):
-        # global file_number
-        self.file_number = self.format_number(kwargs['file_number'], 4)
         self.today = self.format_date(date.today())
-        self.transactions = kwargs['transactions']
+        self.file_number = self.format_number(kwargs['file_number'], 4)
         self.debit_transaction_code = '450'
+        self.ORIGINATOR_ID = kwargs['originator_id']
+        self.DATA_CENTRE = kwargs['data_centre']
+        self.SHORT_NAME = kwargs['short_name']
+        self.LONG_NAME = kwargs['long_name']
+        self.CLIENT_SUNDRY = kwargs['client_sundry']
 
     def format_date(self, d):
         return d.strftime("0%y%j")
@@ -108,6 +113,9 @@ class CPAFile():
         all_records.append(lr + "\n")
 
         return ''.join(all_records)
+    
+    def set_transcations(self, transactions):
+        self.transactions = transactions
 
     def generate_file(self):
         self.record_count = 0
@@ -146,10 +154,17 @@ class Transaction:
 
 
 if __name__ == '__main__':
-    transactions = [Transaction('CREDIT', 100, '01023421', '023125523', 'bob'),
-                    Transaction('CREDIT', 500, '01023421', '235235234', 'jill'),
-                    Transaction('DEBIT', 100, '01023421', '394570233', 'zak'),
-                    Transaction('DEBIT', 9000, '01023421', '23052353', 'matt')]
-
-    cpa_file = CPAFile(file_number=1, transactions=transactions)
-    print(cpa_file.generate_file())
+    if sys.argv[1] == '--config':
+        configuration = json.loads(sys.argv[2])
+        print(pickle.dumps(CPAFile(**configuration)))
+    elif sys.argv[1] == '--transactions':
+        cpa_obj = pickle.loads(sys.argv[2])
+        transactions_obj = json.loads(sys.argv[3])
+        transactions = []
+        for transaction in transactions_obj:
+            transactions.append(Transaction(transaction['transaction_type'], transaction['amount'], transaction['routing_number'], transaction['account_number'], transaction['customer_name']))
+        cpa_obj.set_transcations(transactions)
+        print(pickle.dumps(cpa_obj))
+    elif sys.argv[1] == '--generate':
+        cpa_obj = pickle.loads(sys.argv[2])
+        print(cpa_obj.generate_file())

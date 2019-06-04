@@ -135,7 +135,7 @@ def main(filename):
 
     with open(newfile) as f:
         lines = f.readlines()
-        with open("output.json", "a+") as out:
+        with open(filename + ".json", "a+") as out:
           obj = []
           a = read_a_record(lines[0])
           obj.append(a)
