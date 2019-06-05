@@ -1,0 +1,13 @@
+{
+  "eft_id": "55555",
+  "return_routing_number": "022205555",
+  "return_account_number": "00224405577",
+  "item_trace_prefix": "222233330",
+  "file_creation_number": "0001",
+  "data_centre": "22220",
+  "direct_clearer": "CLEARER",
+  "currency_code": "CAD",
+  "short_name": "AL",
+  "long_name": "AL BERTAN",
+  "sundry_info": "Sundry info"
+}

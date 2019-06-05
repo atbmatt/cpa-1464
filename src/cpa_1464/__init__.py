@@ -16,7 +16,7 @@ class CPAFile():
     DATA_CENTRE = '00000'
     SHORT_NAME = "AL"
     LONG_NAME = "AL BERTAN"
-    CLIENT_SUNDRY = "investing in the future"
+    SUNDRY_INFO = "investing in the future"
 
     record_count = 0
 
@@ -27,19 +27,25 @@ class CPAFile():
 
     def __init__(self, **kwargs):
         self.today = self.format_date(date.today())
-        self.file_number = self.format_number(kwargs['file_number'], 4)
-        self.debit_transaction_code = '450'
-        self.ORIGINATOR_ID = kwargs['originator_id']
+        self.FILE_CREATION_NUMBER = kwargs['file_creation_number']
+        self.DEBIT_TRANSACTION_CODE = '450'
+        self.ORIGINATOR_ID = kwargs['data_centre'] + kwargs['eft_id']
         self.DATA_CENTRE = kwargs['data_centre']
+        self.DIRECT_CLEARER = kwargs['direct_clearer']
+        self.CURRENCY_CODE = kwargs['currency_code']
         self.SHORT_NAME = kwargs['short_name']
         self.LONG_NAME = kwargs['long_name']
-        self.CLIENT_SUNDRY = kwargs['client_sundry']
+        self.SUNDRY_INFO = kwargs['sundry_info']
+        self.ITEM_TRACE_PREFIX = kwargs['item_trace_prefix']
+        self.EFT_ID = kwargs['eft_id']
+        self.RETURN_ROUTING_NUMBER = kwargs['return_routing_number']
+        self.RETURN_ACCOUNT_NUMBER = kwargs['return_account_number']
 
     def format_date(self, d):
         return d.strftime("0%y%j")
 
     def format_number(self, n, width):
-        return "{0:>{1}}".format(n, width)
+        return "{0:>{1}}".format(n, '0' + str(width))
 
     def format_alpha(self, s, width):
         return "{0:<{1}}".format(s, width)
@@ -49,11 +55,11 @@ class CPAFile():
         return ''.join(['A',
                         self.format_number(self.record_count, 9),
                         self.format_alpha(self.ORIGINATOR_ID, 10),
-                        self.format_number(self.file_number, 4),
+                        self.format_number(self.FILE_CREATION_NUMBER, 4),
                         self.today,
                         self.format_number(self.DATA_CENTRE, 5),
-                        " " * 20,
-                        'CAD',
+                        self.format_alpha(self.DIRECT_CLEARER, 20),
+                        self.format_alpha(self.CURRENCY_CODE, 3),
                         " " * 1406,
                         "\n"])
 
@@ -62,18 +68,23 @@ class CPAFile():
         return ''.join(['Z',
                         self.format_number(self.record_count, 9),
                         self.format_alpha(self.ORIGINATOR_ID, 10),
-                        self.format_number(self.file_number, 4),
+                        self.format_number(self.FILE_CREATION_NUMBER, 4),
                         self.format_number(self.total_debit_amount, 14),
                         self.format_number(self.total_debit_count, 8),
                         self.format_number(self.total_credit_amount, 14),
                         self.format_number(self.total_credit_count, 8),
-                        "0" * 1396,  # error corrections not yet implemented
+                        " " * 1396,  # error corrections not yet implemented
                         "\n"])
 
     def debit_credit_records(self, transaction_type):
         all_records = []
         lr = ""
-        for transaction in [r for r in self.transactions if r.transaction_type == transaction_type]:
+        transactions_of_type = [r for r in self.transactions if r.transaction_type == transaction_type]
+        # If there are no debit or credit transactions, return
+        if len(transactions_of_type) == 0:
+            return
+
+        for transaction in transactions_of_type:
             assert(len(lr) <= 1464)
             if len(lr) == 1464:
                 all_records.append(lr + "\n")
@@ -83,22 +94,33 @@ class CPAFile():
                 lr = ''.join([transaction_type[0],
                               self.format_number(self.record_count, 9),
                               self.format_alpha(self.ORIGINATOR_ID, 10),
-                              self.file_number])
-            segment = ''.join((self.format_alpha(self.debit_transaction_code, 3),
+                              self.format_number(self.FILE_CREATION_NUMBER, 4)])
+            segment = ''.join((self.format_alpha(self.DEBIT_TRANSACTION_CODE, 3),
                                self.format_number(transaction.amount, 10),
                                self.format_date(transaction.date),
                                self.format_number(transaction.routing_number, 9),
                                self.format_alpha(transaction.account_number, 12),
-                               "0" * 25,
+                               
+                               # Item trace no. prefix + file number + eft
+                               self.format_number(self.ITEM_TRACE_PREFIX, 9),
+                               self.format_number(self.FILE_CREATION_NUMBER, 4),
+                               self.format_number(self.EFT_ID, 5),
+                               "0" * 4, # filler at end of item trace
+                               "0" * 3, # Stored transaction type
                                self.format_alpha(self.SHORT_NAME, 15),
+                               # customer_name: payee_name for credit, payor_name for debit
                                self.format_alpha(transaction.customer_name, 30),
                                self.format_alpha(self.LONG_NAME, 30),
-                               self.format_alpha(self.ORIGINATOR_ID, 10),
-                               self.format_alpha(transaction.customer_number, 19),
-                               "0" * 9,
-                               " " * 12,
-                               self.format_alpha(self.CLIENT_SUNDRY, 15),
-                               " " * 35))
+                               # self.format_alpha(self.ORIGINATOR_ID, 10),
+                               " " * 10,
+                               self.format_alpha(transaction.reference_number, 19),
+                               self.format_number(self.RETURN_ROUTING_NUMBER, 9),
+                               self.format_alpha(self.RETURN_ACCOUNT_NUMBER, 12),
+                               self.format_alpha(self.SUNDRY_INFO, 15),
+                               " " * 22,
+                               " " * 2,
+                               "0" * 11
+                               ))
 
             if transaction_type == 'DEBIT':
                 self.total_debit_amount += transaction.amount
@@ -108,8 +130,8 @@ class CPAFile():
                 self.total_credit_count += 1
             lr = lr + segment
 
-        while len(lr) < 1464:
-            lr = lr + ('0' * 340)
+        if len(lr) < 1464:
+            lr += " " * (1464 - len(lr))
         all_records.append(lr + "\n")
 
         return ''.join(all_records)
@@ -133,12 +155,13 @@ class CPAFile():
 
 
 class Transaction:
-    def __init__(self, transaction_type, amount_cents, routing_number, account_number, customer_name):
+    def __init__(self, transaction_type, amount_cents, routing_number, account_number, customer_name, reference_number=None):
         self.transaction_type = transaction_type
         self.amount_cents = amount_cents
         self.routing_number = routing_number
         self.account_number = account_number
         self.customer_name = customer_name
+        self.reference_number = reference_number
 
     @property
     def amount(self):
@@ -147,10 +170,6 @@ class Transaction:
     @property
     def date(self):
         return date.today()
-
-    @property
-    def customer_number(self):
-        return str(uuid.uuid1()).split('-')[-1]
 
 
 if __name__ == '__main__':
@@ -162,7 +181,7 @@ if __name__ == '__main__':
         transactions_obj = json.loads(sys.argv[3])
         transactions = []
         for transaction in transactions_obj:
-            transactions.append(Transaction(transaction['transaction_type'], transaction['amount'], transaction['routing_number'], transaction['account_number'], transaction['customer_name']))
+            transactions.append(Transaction(transaction['transaction_type'], transaction['amount'], transaction['routing_number'], transaction['account_number'], transaction['customer_name'], transaction['reference_number']))
         cpa_obj.set_transcations(transactions)
         print(pickle.dumps(cpa_obj))
     elif sys.argv[1] == '--generate':

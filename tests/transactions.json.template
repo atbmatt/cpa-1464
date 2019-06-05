@@ -1,0 +1,10 @@
+[
+  {
+    "transaction_type": "CREDIT",
+    "amount": 100,
+    "routing_number": "011122222",
+    "account_number": "001108822",
+    "customer_name": "Bob",
+    "reference_number": "537"
+  }
+]
