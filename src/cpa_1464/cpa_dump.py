@@ -123,7 +123,7 @@ def fix_newline(filename):
     with open(filename, 'rb') as open_file:
         content = open_file.read()
     content = content.replace(WINDOWS_LINE_ENDING, UNIX_LINE_ENDING)
-    if content[-1] != WINDOWS_LINE_ENDING or content[-1] != UNIX_LINE_ENDING:
+    if content[-1] != WINDOWS_LINE_ENDING and content[-1] != UNIX_LINE_ENDING:
         content += UNIX_LINE_ENDING
     with open(newfile, 'wb') as open_file:
         open_file.write(content)
